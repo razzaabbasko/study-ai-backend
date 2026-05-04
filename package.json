@@ -1,0 +1,16 @@
+{
+  "name": "study-ai-backend",
+  "version": "1.0.0",
+  "description": "Free AI study app backend — Gemini wrapper with rate limiting",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
