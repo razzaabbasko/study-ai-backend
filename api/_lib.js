@@ -81,7 +81,7 @@ export function getGemini() {
  */
 export function getModel(systemInstruction) {
   return getGemini().getGenerativeModel({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-1.5-flash',
     systemInstruction,
     generationConfig: {
       temperature: 0.7,
