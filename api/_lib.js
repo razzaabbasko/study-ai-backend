@@ -1,10 +1,5 @@
-// Shared helpers used by all API routes.
-// In a real app you'd use Redis/Upstash for rate limiting; for free MVP
-// we use in-memory Map (resets on cold start, fine for low traffic).
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// ─────────── CORS ───────────
 export function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -20,40 +15,26 @@ export function handleOptions(req, res) {
   return false;
 }
 
-// ─────────── Rate limiting ───────────
-// In-memory store: deviceId -> { count, resetAt }
-// On Vercel, this resets when the function cold-starts. Good enough for free
-// tier; upgrade to Upstash KV ($0/mo for 10k reqs) when you need persistence.
 const usageStore = new Map();
 const FREE_USES_PER_DAY = 5;
 const RESET_MS = 24 * 60 * 60 * 1000;
 
-export function checkRateLimit(deviceId, bonusUses = 0) {
+export function checkRateLimit(deviceId) {
   if (!deviceId) return { allowed: false, remaining: 0, error: 'Missing X-Device-Id header' };
-
   const now = Date.now();
   const record = usageStore.get(deviceId);
-
   if (!record || now > record.resetAt) {
     usageStore.set(deviceId, { count: 1, resetAt: now + RESET_MS, bonusUses: 0 });
     return { allowed: true, remaining: FREE_USES_PER_DAY - 1, resetAt: now + RESET_MS };
   }
-
   const limit = FREE_USES_PER_DAY + (record.bonusUses || 0);
   if (record.count >= limit) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: record.resetAt,
-      error: 'Daily limit reached. Watch a rewarded ad for +1 use, or come back tomorrow.'
-    };
+    return { allowed: false, remaining: 0, resetAt: record.resetAt, error: 'Daily limit reached.' };
   }
-
   record.count++;
   return { allowed: true, remaining: limit - record.count, resetAt: record.resetAt };
 }
 
-/** Called when user watches a rewarded ad — adds +1 use to their bonus pool. */
 export function grantBonusUse(deviceId) {
   if (!deviceId) return false;
   const now = Date.now();
@@ -64,7 +45,6 @@ export function grantBonusUse(deviceId) {
   return true;
 }
 
-// ─────────── Gemini client ───────────
 let _client = null;
 export function getGemini() {
   if (!_client) {
@@ -75,10 +55,6 @@ export function getGemini() {
   return _client;
 }
 
-/**
- * Get a model configured for the task type.
- * Free tier model: gemini-2.0-flash-exp (or gemini-1.5-flash as fallback).
- */
 export function getModel(systemInstruction) {
   return getGemini().getGenerativeModel({
     model: 'gemini-1.5-flash',
@@ -90,13 +66,14 @@ export function getModel(systemInstruction) {
   });
 }
 
-// ─────────── Common response helper ───────────
 export function sendJson(res, status, payload) {
   setCors(res);
   res.setHeader('Content-Type', 'application/json');
   res.status(status).json(payload);
 }
 
-export function sendError(res, status, message) {
-  sendJson(res, status, { error: message });
+export function sendError(res, status, message, debug) {
+  // Now includes a debug field with the real error so we can diagnose
+  const body = debug ? { error: message, debug: String(debug) } : { error: message };
+  sendJson(res, status, body);
 }
