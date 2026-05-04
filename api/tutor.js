@@ -32,10 +32,10 @@ export default async function handler(req, res) {
     const answer = result.response.text();
 
     sendJson(res, 200, { answer, remaining: limit.remaining });
-  } catch (err) {
+} catch (err) {
     console.error('Tutor error:', err);
-    sendError(res, 500, 'AI temporarily unavailable. Please try again.');
-  }
+    sendError(res, 500, 'AI temporarily unavailable. Please try again.', err.message);
+}
 }
 
 function buildTutorSystemPrompt(subject) {
